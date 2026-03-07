@@ -95,9 +95,7 @@ static void sig_int(int signo)
 int handle_event(void *ctx, void *data, size_t data_sz)
 {
 	struct event e;
-	struct tm *tm;
 	char ts[32];
-	time_t t;
 
 	if (data_sz < sizeof(e)) {
 		printf("Error: packet too small\n");
@@ -106,9 +104,7 @@ int handle_event(void *ctx, void *data, size_t data_sz)
 	/* Copy data as alignment in the ring buffer isn't guaranteed. */
 	memcpy(&e, data, sizeof(e));
 
-	time(&t);
-	tm = localtime(&t);
-	strftime(ts, sizeof(ts), "%H:%M:%S", tm);
+	str_timestamp("%H:%M:%S", ts, sizeof(ts));
 	printf("%-8s %-6d %-16s %-7.2f ",
 	       ts, e.tgid, e.task, (double)e.delta_ns / 1000000000);
 	if (env.full_path) {
@@ -154,6 +150,13 @@ int main(int argc, char **argv)
 		return 1;
 	}
 
+	buf = bpf_buffer__new(obj->maps.events, obj->maps.heap);
+	if (!buf) {
+		err = -errno;
+		fprintf(stderr, "failed to create ring/perf buffer: %d", err);
+		goto cleanup;
+	}
+
 	/* initialize global data (filtering options) */
 	obj->rodata->targ_tgid = env.pid;
 	obj->rodata->full_path = env.full_path;
@@ -173,16 +176,6 @@ int main(int argc, char **argv)
 		goto cleanup;
 	}
 
-	printf("Tracing the lifespan of short-lived files ... Hit Ctrl-C to end.\n");
-	printf("%-8s %-6s %-16s %-7s %s\n", "TIME", "PID", "COMM", "AGE(s)", "FILE");
-
-	buf = bpf_buffer__new(obj->maps.events, obj->maps.heap);
-	if (!buf) {
-		err = -errno;
-		fprintf(stderr, "failed to create ring/perf buffer: %d", err);
-		goto cleanup;
-	}
-
 	err = bpf_buffer__open(buf, handle_event, handle_lost_events, NULL);
 	if (err) {
 		err = -errno;
@@ -195,6 +188,9 @@ int main(int argc, char **argv)
 		err = 1;
 		goto cleanup;
 	}
+
+	printf("Tracing the lifespan of short-lived files ... Hit Ctrl-C to end.\n");
+	printf("%-8s %-6s %-16s %-7s %s\n", "TIME", "PID", "COMM", "AGE(s)", "FILE");
 
 	while (!exiting) {
 		err = bpf_buffer__poll(buf, POLL_TIMEOUT_MS);

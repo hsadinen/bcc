@@ -76,6 +76,10 @@ bpf_text = """
 #include <uapi/linux/ptrace.h>
 #include <linux/blkdev.h>
 
+enum { __BCC_DNAME_INLINE_LEN = DNAME_INLINE_LEN };
+#undef DNAME_INLINE_LEN
+#define DNAME_INLINE_LEN __BCC_DNAME_INLINE_LEN
+
 // the key for the output summary
 struct info_t {
     unsigned long inode;
@@ -200,7 +204,7 @@ elif args.write_only:
 else:
     b.attach_kprobe(event="vfs_read", fn_name="trace_read_entry")
     b.attach_kprobe(event="vfs_write", fn_name="trace_write_entry")
-    
+
 
 # check whether hash table batch ops is supported
 htab_batch_ops = True if BPF.kernel_struct_has_field(b'bpf_map_ops',

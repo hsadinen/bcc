@@ -196,7 +196,7 @@ static void print_runq_occupancy(struct runqlen_bpf__bss *bss)
 				queued += val;
 		}
 		samples = idle + queued;
-		runqocc = queued * 1.0 / max(1ULL, samples);
+		runqocc = queued * 1.0 / max(1ULL, (unsigned long long)samples);
 		if (env.per_cpu)
 			printf("runqocc, CPU %-3d %6.2f%%\n", i,
 				100 * runqocc);
@@ -229,10 +229,8 @@ int main(int argc, char **argv)
 	};
 	struct bpf_link *links[MAX_CPU_NR] = {};
 	struct runqlen_bpf *obj;
-	struct tm *tm;
 	char ts[32];
 	int err, i;
-	time_t t;
 
 	err = argp_parse(&argp, argc, argv, 0, NULL, NULL);
 	if (err)
@@ -292,9 +290,7 @@ int main(int argc, char **argv)
 		printf("\n");
 
 		if (env.timestamp) {
-			time(&t);
-			tm = localtime(&t);
-			strftime(ts, sizeof(ts), "%H:%M:%S", tm);
+			str_timestamp("%H:%M:%S", ts, sizeof(ts));
 			printf("%-8s\n", ts);
 		}
 
